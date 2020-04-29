@@ -39,15 +39,18 @@ https://docs.google.com/spreadsheets/d/1gR1QaUdWCclJxE4q1huY-SGc4NxbWjeVUscSmvMO
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import math 
+import os
+import sys
+import datetime
+
 
 from sklearn.preprocessing import PolynomialFeatures 
 from sklearn.linear_model import LinearRegression 
 from sklearn.model_selection import train_test_split 
 from sklearn.metrics import mean_squared_error, r2_score
 
-import matplotlib.pyplot as plt
-import os
-import sys
 
 
 '''
@@ -81,7 +84,7 @@ def read_data_ex( filename , h1, h2 ):
 Based on two data sets plots the graphic yxt
 using title and labels for reference
 ''' 
-def print_data( y, t, color,  title, x_label, y_label ):
+def plot_data( y, t, color,  title, x_label, y_label ):
 
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -94,7 +97,7 @@ def print_data( y, t, color,  title, x_label, y_label ):
 Based on 3 data sets plots the graphic y1 x t and y2 x t
 using title and labels for reference
 ''' 
-def print_data_ex(  y1, y2, t, title, x_label, y_label ):
+def plot_data_ex(  y1, y2, t, title, x_label, y_label ):
 
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -134,7 +137,7 @@ def show_error( y, y_poly_pred ):
 Based on two data sets plots the graphic yxt
 using title and labels for reference
 '''
-def print_regression( X, y, pol_reg, poly_reg, the_title, x_l, y_l ):
+def plot_regression( X, y, pol_reg, poly_reg, the_title, x_l, y_l ):
 
     plt.scatter(X, y, color='red')
     plt.plot(X, pol_reg.predict(poly_reg.fit_transform(X)), color='blue')
@@ -143,11 +146,17 @@ def print_regression( X, y, pol_reg, poly_reg, the_title, x_l, y_l ):
     plt.ylabel(y_l)
     plt.show() 
 
-
+def f1(x, a, b, c):
+    return a * np.exp(-b * x) + c
+    
+def f2(x, a, b, c):
+    return a/( 1 + c*np.exp( -b * x ) )
+    
 '''
 Calculates the time required so the cases double
 '''
 def time_to_double( today, ys ):
+
 
     p = ys[ today + 1 ]  
     pmax = ys.max()
@@ -159,25 +168,39 @@ def time_to_double( today, ys ):
         t =  (( 2*p - ys[ today -1 ] ) / ( p - ys[ today - 1] ))*1
         print("Time to double: {} days".format(t) )
         
-        
-
+def tg_angle_aprox( today, y , h ):    
+    ynp = y.to_numpy()
+    p2 = ynp[ today - 1 ]
+    p1 = ynp[ today - 1 - h ]
+    
+    angle = np.arctan( (p2-p1)/h )
+    dif   = (p2-p1)/(h)
+    
+    return angle,dif
+    
 '''
 Polinomial regression main function
 '''
 def do_pol_reg( t, y, msg, level, today  ):
 
     print("[Polinomial regression level: {} ]".format( level ) )
+    
     pol_reg,poly_reg = pol_regression(  y, t, level )   
     y_poly_pred = pol_reg.predict(poly_reg.fit_transform( t ))
     show_error( y, y_poly_pred )
     ayear = pd.DataFrame( [ i for i in range( 1,360 ) ] ) 
     ys = pol_reg.predict( poly_reg.fit_transform( ayear ))
-    
-    
-    print("Maximum cases ( {} ) estimated: {} at {} days.".format( msg, ys.max(), ys.argmax() + 1) )
     time_to_double( today, ys )
+    stoday = datetime.datetime.today() 
+    angle, trate = tg_angle_aprox( today ,y , 1 )   
+
     
-    #print_regression( t, y, pol_reg, poly_reg, "Cases Corona", "days", "Cases" )    
+    print("Maximum cases ( {} ) estimated: {} at {} days, eg: within {} days from now. ".format( msg, ys.max(), ys.argmax() + 1 , ys.argmax() + 1 - today ))
+    print("Angle of inclination: {}. Tax of growth {} cases/day".format( angle, trate ) )
+    print("Executed on {}".format( stoday.strftime("%Y-%m-%d at %H:%M:%S") ) )
+ 
+    
+    #plot_regression( t, y, pol_reg, poly_reg, "Cases Corona", "days", "Cases" )  
     
 
 '''
