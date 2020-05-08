@@ -45,13 +45,14 @@ import os
 import sys
 import datetime
 
-
 from sklearn.preprocessing import PolynomialFeatures 
 from sklearn.linear_model import LinearRegression 
 from sklearn.model_selection import train_test_split 
 from sklearn.metrics import mean_squared_error, r2_score
 
-
+from scipy.optimize import curve_fit
+ 
+ 
 
 '''
 Reads a csv file and looks for the columns t and cases
@@ -146,24 +147,18 @@ def plot_regression( X, y, pol_reg, poly_reg, the_title, x_l, y_l ):
     plt.ylabel(y_l)
     plt.show() 
 
-def f1(x, a, b, c):
-    return a * np.exp(-b * x) + c
-    
-def f2(x, a, b, c):
-    return a/( 1 + c*np.exp( -b * x ) )
     
 '''
 Calculates the time required so the cases double
 '''
 def time_to_double( today, ys ):
 
-
     p = ys[ today + 1 ]  
     pmax = ys.max()
     tmax = ys.argmax() + 1 
     
-    if 2*p > pmax:
-        print("Cannot estimate")
+    if ( 2*p ) > pmax:
+        print("Cannot estimate time to double")
     else:
         t =  (( 2*p - ys[ today -1 ] ) / ( p - ys[ today - 1] ))*1
         print("Time to double: {} days".format(t) )
@@ -171,19 +166,42 @@ def time_to_double( today, ys ):
 def tg_angle_aprox( today, y , h ):    
     ynp = y.to_numpy()
     p2 = ynp[ today - 1 ]
-    p1 = ynp[ today - 1 - h ]
+    p1 = ynp[ today - 2 - h ]
     
-    angle = np.arctan( (p2-p1)/h )
-    dif   = (p2-p1)/(h)
+    angle = math.degrees( np.arctan( (p2-p1)/h ) )
+    dif   = (p2-p1)/(2*h)
     
     return angle,dif
+ 
+max_popbr = 200000000
+max_popsp = 40000000
+
+
+def max_verification( ys, today, option ):
+
+    if option == 0:
+        max = max_popbr
+    elif option == 1:
+        max = max_popsp
+
+    for day in range( 1, 360 ):
+        if ys[ day ] >= max:
+            print( "In {} days all population will be infected".format(day-today))
+            return
     
+    print("Maximum cases ( {} ) estimated: {} at {} days {} days from now.".format( msg, np.format_float_positional(np.float32(ys.max())) , ys.argmax() + 1 , ys.argmax() + 1 - today ))        
+        
 '''
 Polinomial regression main function
 '''
-def do_pol_reg( t, y, msg, level, today  ):
+def do_pol_reg( t, y, option, level, today  ):
+    msg=""
+    if option == 0:
+        msg = "Brazil"
+    elif option == 1:
+        msg = "SP"
 
-    print("[Polinomial regression level: {} ]".format( level ) )
+    print("[{} verification - Polinomial regression level: {} ]".format( msg, level ) )
     
     pol_reg,poly_reg = pol_regression(  y, t, level )   
     y_poly_pred = pol_reg.predict(poly_reg.fit_transform( t ))
@@ -192,14 +210,12 @@ def do_pol_reg( t, y, msg, level, today  ):
     ys = pol_reg.predict( poly_reg.fit_transform( ayear ))
     time_to_double( today, ys )
     stoday = datetime.datetime.today() 
-    angle, trate = tg_angle_aprox( today ,y , 1 )   
-
-    
-    print("Maximum cases ( {} ) estimated: {} at {} days, eg: within {} days from now. ".format( msg, ys.max(), ys.argmax() + 1 , ys.argmax() + 1 - today ))
+    angle, trate = tg_angle_aprox( today , y , 1 )   
+    average = np.average(y)
     print("Angle of inclination: {}. Tax of growth {} cases/day".format( angle, trate ) )
+    print("Average: {}".format( average ) )
     print("Executed on {}".format( stoday.strftime("%Y-%m-%d at %H:%M:%S") ) )
- 
-    
+    max_verification(ys,today,option)
     #plot_regression( t, y, pol_reg, poly_reg, "Cases Corona", "days", "Cases" )  
     
 
@@ -214,7 +230,8 @@ def find_min_error( t, y ):
         pol_reg,poly_reg = pol_regression(  y, t, level )   
         y_poly_pred = pol_reg.predict(poly_reg.fit_transform( t ))
         best_fit.append( np.sqrt(mean_squared_error(y,y_poly_pred)))
-        
+        #print( np.sqrt(mean_squared_error(y,y_poly_pred)) )
+    
     return best_fit.index( min(best_fit) ) + 1
 
   
@@ -227,7 +244,7 @@ def main(argv):
         return      
        
     filename = argv[1]
-    option   = argv[2]
+    option   = int( argv[2] )
     today    = int( argv[3] )
             
     if (  os.path.exists(filename) == False ):
